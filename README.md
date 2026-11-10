@@ -70,6 +70,17 @@ server.registerTool('search_issues', { inputSchema: { query: z.string() } }, asy
 
 The model gets a result that always fits, sees `"… 280 more items"`, and calls the tool again with `next_cursor` if it needs more.
 
+### Paginated APIs: point the cursor at the first hidden item
+
+If a page doesn't fit and some items are hidden, a `next_cursor` that points at the *next page* skips them, and an agent that follows cursors will never see them. Point the cursor at the first hidden item instead, and normal pagination picks them up:
+
+```ts
+const page = { total, items, next_cursor: cursorAt(offset + items.length) };
+const hidden = fit(page, { maxTokens: 2000 }).omitted.find((o) => o.path === 'items' && o.kind === 'items')?.count ?? 0;
+page.next_cursor = cursorAt(offset + items.length - hidden);
+return fit(page, { maxTokens: 2000 }).json; // re-fit with the adjusted cursor
+```
+
 ### Tool calls with the AI SDK, OpenAI or Anthropic
 
 ```ts
@@ -105,11 +116,33 @@ import { encode } from 'gpt-tokenizer';
 fit(data, { maxTokens: 8000, countTokens: (text) => encode(text).length });
 ```
 
+## Benchmark: what do agents answer?
+
+A fake issue tracker CLI with 300 issues (`list` pages of 100 with `total` and `next_cursor`, `get <id>`). Every response is limited the way a tool would limit it, with no limit (control), with `truncate-json`, or with `json-fit`. Headless agents, never told about the variant, answer three questions: the total number of issues, the ids of **all** open `security` issues (7, spread over all pages), and the root cause written at the end of issue #143's long description. 5 runs per cell.
+
+| agent (tool budget) | | no limit | `truncate-json` | `json-fit` |
+|---|---|:-:|:-:|:-:|
+| Claude Code + Haiku (12k chars) | all answers correct | 5/5 | 4/5 | **5/5** |
+| | tool calls per task | 9 | 135 | **10** |
+| | cost per task | $0.029 | $0.093 | **$0.017** |
+| Claude Code + Sonnet (12k chars) | all answers correct | 5/5 | **0/5** | **5/5** |
+| | tool calls per task | 7 | 9 | 13 |
+| Codex CLI (8k chars) | all answers correct | 3/5 | 2/5 | 3/5, **4/5** with a [cursor fix](#paginated-apis-point-the-cursor-at-the-first-hidden-item) |
+| | tool calls per task | 6 | 84 | 17 |
+
+- **`truncate-json` hides the way forward.** It drops `next_cursor` and returns the last visible issue with an empty `labels` array. Haiku brute-forced the tracker (135 calls on average, up to 332). Sonnet stopped in all 5 runs and asked for permission to run a paging script instead of making ~30 calls by hand. Codex sometimes made 307 calls, sometimes gave up.
+- **`json-fit` keeps the way forward.** Agents saw `"… 49 more items"` and `next_cursor`, switched to smaller pages and walked the tracker in ~10 calls, with the same accuracy as the unlimited tool.
+- **Cheaper than no limit at all.** Haiku with `json-fit` cost 42% less than with the full 120 kB pages: less to read on every call.
+- **Pagination needs one extra line.** Codex followed `next_cursor` and skipped the items hidden on each page. Pointing the cursor at the first hidden item ([recipe](#paginated-apis-point-the-cursor-at-the-first-hidden-item)) fixed it: 4/5, with the remaining failure an agent that stopped paging early.
+- Codex trims long command output itself (roughly 10 kB), so it got an 8k budget, and even the unlimited control is not reliable there.
+
+Reproduce: [bench/](bench) (`sh bench/agent-bench.sh claude haiku 5`).
+
 ## How it works
 
 1. If the JSON already fits, it is returned unchanged (`truncated: false`).
 2. Otherwise one set of limits applies to the whole document: max string length, max array items, max object keys, max depth. A binary search finds the loosest limits that fit, then raises them further to use the leftover budget.
-3. Limits tighten in a fixed order: **long strings first**, then strings and arrays together, then object keys, and as a last resort deep containers collapse to `"[object: 12 keys]"` / `"[array: 300 items]"`.
+3. Limits tighten in a fixed order: **strings first** (down to ~100 characters, before any array item is hidden: the shape of a list is worth more than long text), then strings and arrays together, then object keys, and as a last resort deep containers collapse to `"[object: 12 keys]"` / `"[array: 300 items]"`.
 4. If even the smallest skeleton doesn't fit, you get the smallest valid result with `size > budget`. It never throws because of the budget.
 
 Markers are plain JSON strings, so the output stays valid JSON:

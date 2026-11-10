@@ -5,7 +5,7 @@ import { ROOT_CAUSE_KEYWORDS, SECURITY_OPEN, TOTAL } from './data.ts';
 
 const out = process.argv[2];
 if (!out) throw new Error('usage: score.ts <out>');
-const variants = ['full', 'truncate-json', 'json-fit'];
+const variants = ['full', 'truncate-json', 'json-fit', 'json-fit-cursor'];
 const runs = readdirSync(out).filter((d) => d.startsWith('run-')).sort((a, b) => Number(a.slice(4)) - Number(b.slice(4)));
 
 const read = (f: string) => (existsSync(f) ? readFileSync(f, 'utf8') : '');
@@ -18,7 +18,7 @@ interface Row {
 const rows: Record<string, Row[]> = {};
 
 const pad = (s: unknown, n: number) => String(s).padEnd(n);
-console.log(`\n${pad('run', 7)}${pad('variant', 15)}${pad('total', 7)}${pad('security', 10)}${pad('found', 7)}${pad('extra', 7)}${pad('root', 6)}${pad('calls', 7)}${pad('bytes', 9)}tokens`);
+console.log(`\n${pad('run', 7)}${pad('variant', 17)}${pad('total', 7)}${pad('security', 10)}${pad('found', 7)}${pad('extra', 7)}${pad('root', 6)}${pad('calls', 7)}${pad('bytes', 9)}tokens`);
 for (const run of runs) {
   for (const v of variants) {
     const d = join(out, run, v);
@@ -46,12 +46,12 @@ for (const run of runs) {
     const row: Row = { run, total, security: found === SECURITY_OPEN.length && extra === 0, recall: found, extra, root, calls: calls.length, bytes, tokens, cost };
     (rows[v] ??= []).push(row);
     const yn = (b: boolean) => (b ? 'yes' : 'NO');
-    console.log(`${pad(run, 7)}${pad(v, 15)}${pad(yn(total), 7)}${pad(yn(row.security), 10)}${pad(`${found}/${SECURITY_OPEN.length}`, 7)}${pad(extra, 7)}${pad(yn(root), 6)}${pad(row.calls, 7)}${pad(bytes, 9)}${tokens ?? '-'}`);
+    console.log(`${pad(run, 7)}${pad(v, 17)}${pad(yn(total), 7)}${pad(yn(row.security), 10)}${pad(`${found}/${SECURITY_OPEN.length}`, 7)}${pad(extra, 7)}${pad(yn(root), 6)}${pad(row.calls, 7)}${pad(bytes, 9)}${tokens ?? '-'}`);
   }
 }
 
 const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
-console.log('\nvariant        all-correct  total  security  root   avg calls  avg tool bytes  avg agent tokens  avg cost');
+console.log('\nvariant          all-correct  total  security  root   avg calls  avg tool bytes  avg agent tokens  avg cost');
 for (const v of variants) {
   const r = rows[v] ?? [];
   if (!r.length) continue;
@@ -60,7 +60,7 @@ for (const v of variants) {
   const tok = r.filter((x) => x.tokens !== undefined);
   const cost = r.filter((x) => x.cost !== undefined);
   console.log(
-    `${pad(v, 15)}${pad(c((x) => x.total && x.security && x.root), 13)}${pad(c((x) => x.total), 7)}${pad(c((x) => x.security), 10)}${pad(c((x) => x.root), 7)}` +
+    `${pad(v, 17)}${pad(c((x) => x.total && x.security && x.root), 13)}${pad(c((x) => x.total), 7)}${pad(c((x) => x.security), 10)}${pad(c((x) => x.root), 7)}` +
       `${pad(avg(r.map((x) => x.calls)).toFixed(1), 11)}${pad(Math.round(avg(r.map((x) => x.bytes))), 16)}${pad(tok.length ? Math.round(avg(tok.map((x) => x.tokens!))) : '-', 18)}` +
       `${cost.length ? '$' + avg(cost.map((x) => x.cost!)).toFixed(3) : '-'}`,
   );

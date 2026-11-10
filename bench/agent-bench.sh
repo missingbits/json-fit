@@ -11,7 +11,7 @@ set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 NODE="$(command -v node)" # absolute path: agents may start a shell with a different default node
 case "$("$NODE" -p "process.versions.node.split('.')[0]")" in 2[2-9]|[3-9]?) ;; *) echo "Node 22+ required ($NODE)" >&2; exit 1 ;; esac
-VARIANTS="full truncate-json json-fit"
+VARIANTS="${VARIANTS:-full truncate-json json-fit}" # json-fit-cursor: pagination-aware json-fit
 
 if [ "$1" = "--summary" ]; then "$NODE" --no-warnings "$HERE/score.ts" "$2"; exit 0; fi
 
@@ -33,7 +33,7 @@ setup() { # setup <dir> <variant>: a wrapper that runs the CLI and logs every ca
   mkdir -p "$1"
   cat >"$1/issues" <<EOF
 #!/bin/sh
-out=\$(ISSUES_VARIANT=$2 "$NODE" --no-warnings "$HERE/issues.ts" "\$@"); code=\$?
+out=\$(ISSUES_MAX_CHARS=${ISSUES_MAX_CHARS:-12000} ISSUES_VARIANT=$2 "$NODE" --no-warnings "$HERE/issues.ts" "\$@"); code=\$?
 printf '%s\n' "\$out"
 printf '%s\t%s\t%s\t%s\n' "\$(date +%H:%M:%S)" "issues \$*" "exit=\$code" "stdout=\${#out}" >>"$1/calls.log"
 exit \$code

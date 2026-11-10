@@ -3,11 +3,12 @@
 //   full           no limit (control)
 //   truncate-json  truncate-json (keeps the beginning, drops the rest)
 //   json-fit       json-fit (shrinks evenly, leaves markers)
+//   json-fit-cursor  json-fit, and next_cursor points at the first hidden item (pagination-aware)
 import truncateJson from 'truncate-json';
 import { fit } from '../src/index.ts';
 import { issues } from './data.ts';
 
-const MAX_CHARS = 12_000;
+const MAX_CHARS = Number(process.env.ISSUES_MAX_CHARS ?? 12_000);
 const variant = process.env.ISSUES_VARIANT ?? 'full';
 
 const HELP = `Usage: issues <command> [options]
@@ -55,8 +56,14 @@ if (!cmd || cmd === '--help' || cmd === '-h' || cmd === 'help') {
     if (!(offset >= 0 && offset <= all.length)) fail('invalid cursor');
   }
   const items = all.slice(offset, offset + limit);
-  const next = offset + limit < all.length ? `c_${((offset + limit) ^ 0x5a5a).toString(16)}` : null;
-  print({ total: all.length, items, next_cursor: next });
+  const cursorAt = (end: number) => (end < all.length ? `c_${(end ^ 0x5a5a).toString(16)}` : null);
+  if (variant === 'json-fit-cursor') {
+    // fit the page, then point the cursor at the first item that didn't fit
+    const page = { total: all.length, items, next_cursor: cursorAt(offset + limit) };
+    const hidden = fit(page, { maxChars: MAX_CHARS }).omitted.find((o) => o.path === 'items' && o.kind === 'items')?.count ?? 0;
+    page.next_cursor = cursorAt(offset + items.length - hidden);
+    console.log(fit(page, { maxChars: MAX_CHARS }).json);
+  } else print({ total: all.length, items, next_cursor: cursorAt(offset + limit) });
 } else if (cmd === 'get') {
   const id = Number(args[0]);
   const issue = all.find((i) => i.id === id);

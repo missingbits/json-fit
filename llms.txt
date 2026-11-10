@@ -21,7 +21,9 @@ execute: async () => fit(await db.rows(), { maxTokens: 1500 }).value;
 
 - `{"total":312,"items":[{"id":1,"body":"Login page hangs… [+644 chars]"},…,"… 307 more items"],"next_cursor":"c_8f2a"}`
 - Markers: `"… [+N chars]"` (string), `"… N more items"` (last array item), `"…": "N more keys"` (object), `"[object: N keys]"` / `"[array: N items]"` (collapsed deep container).
-- Order of cuts: long strings → strings + arrays → object keys → depth. Leftover budget is used.
+- Order of cuts: strings (down to ~100 chars) → strings + arrays → object keys → depth. Leftover budget is used.
+- Paginated responses: point `next_cursor` at the first hidden item (`omitted.find(o => o.path === 'items' && o.kind === 'items').count` tells how many were hidden), otherwise agents that follow cursors skip them.
+- Benchmark (Claude Haiku/Sonnet, Codex; 300-issue tracker): same accuracy as an unlimited tool in ~10 calls; `truncate-json` needed up to 13x more calls or made agents give up.
 
 ## API
 
