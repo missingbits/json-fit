@@ -1,6 +1,6 @@
 {
   "name": "json-fit",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Shrink JSON to a token budget for LLM prompts and tool / MCP results: keeps every key and valid JSON, trims arrays and long strings evenly, and leaves markers the model can see (\"… 47 more items\").",
   "keywords": [
     "json",

@@ -9,7 +9,8 @@
     "declaration": true,
     "types": ["node"],
     "paths": { "json-fit": ["./src/index.ts"] },
-    "rewriteRelativeImportExtensions": true
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true
   },
   "include": ["src", "test", "examples"]
 }

@@ -1,0 +1,37 @@
+# json-fit
+
+> Shrink JSON to a token (or character) budget before putting it into an LLM prompt or an MCP / tool result. Output is always valid JSON, every key is kept, long strings and arrays are shortened evenly, and in-band markers ("… 307 more items", "… [+644 chars]") tell the model what was cut. Zero dependencies, ESM + CJS, Node 22+, browsers.
+
+Use it when: a tool, MCP server or prompt builder returns large JSON (API responses, DB rows, logs) that must fit a context budget, instead of `JSON.stringify(x).slice(0, n)` (breaks JSON), hand-written `items.slice(0, 20)` per tool, or `truncate-json` (keeps the beginning and silently drops the rest, so the model can't tell data is missing).
+
+## Usage
+
+```ts
+import { fit } from 'json-fit';
+
+// MCP tool result
+const { json } = fit(data, { maxTokens: 4000, keep: ['id', 'next_cursor'] });
+return { content: [{ type: 'text', text: json }] };
+
+// SDKs that serialize tool output themselves: use `value`
+execute: async () => fit(await db.rows(), { maxTokens: 1500 }).value;
+```
+
+## Output
+
+- `{"total":312,"items":[{"id":1,"body":"Login page hangs… [+644 chars]"},…,"… 307 more items"],"next_cursor":"c_8f2a"}`
+- Markers: `"… [+N chars]"` (string), `"… N more items"` (last array item), `"…": "N more keys"` (object), `"[object: N keys]"` / `"[array: N items]"` (collapsed deep container).
+- Order of cuts: long strings → strings + arrays → object keys → depth. Leftover budget is used.
+
+## API
+
+- `fit(value, { maxTokens | maxChars, countTokens?, keep?, minItems? = 1, minString? = 32, indent? = 0 })` → `{ json, value, truncated, size, omitted: [{ path, kind: 'chars'|'items'|'keys'|'depth', count }] }`.
+- `fitJson(text, options)` — same for a JSON string; invalid JSON is shortened as text.
+- `estimateTokens(text)` — default conservative estimate (~3 ASCII chars/token, 1 per non-ASCII char); pass `countTokens` for an exact tokenizer.
+- `keep`: key name anywhere (`'id'`) or path with `*` (`'items.*.id'`, `'items[*].id'`). Kept values are never shortened.
+- Never throws because of the budget: if the smallest skeleton doesn't fit, returns it with `size > budget`.
+
+## Docs
+
+- [README](https://github.com/missingbits/json-fit#readme): motivation, use cases, comparison with truncate-json
+- [CHANGELOG](https://github.com/missingbits/json-fit/blob/main/CHANGELOG.md)
