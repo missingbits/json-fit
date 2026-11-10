@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    # majors (TypeScript, vitest, tsdown...) are upgraded deliberately, not by bot PRs
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']

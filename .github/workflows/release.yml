@@ -1,0 +1,38 @@
+name: Release
+
+# Stages a release on npm when a version tag (v1.2.3) is pushed.
+# Trusted publishing (OIDC): no NPM_TOKEN secret, provenance attached automatically.
+# Staged publishing: the version goes live only after a maintainer runs `npm stage approve` with 2FA.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write # required for trusted publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24 # ships npm 11, required for trusted publishing
+          registry-url: https://registry.npmjs.org
+          # no dependency cache in the publish job: avoids cache-poisoning attacks
+      - name: Check tag matches package.json version
+        run: |
+          pkg="v$(node -p "require('./package.json').version")"
+          if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $pkg" >&2
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Use npm >= 11.15 (staged publishing)
+        run: npm install -g npm@^11.15.0 && npm --version
+      - run: npm stage publish --access public

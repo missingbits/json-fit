@@ -1,0 +1,73 @@
+{
+  "name": "json-fit",
+  "version": "0.0.0",
+  "description": "Shrink JSON to a token budget for LLM prompts and tool / MCP results: keeps every key and valid JSON, trims arrays and long strings evenly, and leaves markers the model can see (\"… 47 more items\").",
+  "keywords": [
+    "json",
+    "truncate",
+    "truncate-json",
+    "shrink",
+    "token-budget",
+    "tokens",
+    "context-window",
+    "llm",
+    "ai",
+    "ai-agents",
+    "mcp",
+    "model-context-protocol",
+    "tool-output",
+    "tool-results",
+    "prompt",
+    "openai",
+    "anthropic",
+    "claude"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "llms.txt"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts --dts --format esm,cjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/missingbits/json-fit.git"
+  },
+  "homepage": "https://github.com/missingbits/json-fit#readme",
+  "bugs": {
+    "url": "https://github.com/missingbits/json-fit/issues"
+  },
+  "author": "Gordey Levchenko (https://github.com/lgordey)",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
+  "allowScripts": {
+    "fsevents": false
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsdown": "^0.23.7",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
