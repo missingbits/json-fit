@@ -55,9 +55,12 @@ interface Limits {
 type Seg = string | number;
 
 const MORE_KEYS = '…';
-// Interleaved ladders: long strings shrink first, then strings and arrays shrink together.
-const STR_STEPS = [Infinity, 2000, 1000, 500, 300, 200, 150, 100, 80, 64, 48, 32];
-const ITEM_STEPS = [Infinity, Infinity, Infinity, 100, 50, 30, 20, 12, 8, 5, 3, 2, 1];
+// [max string length, max array items]: strings shrink to ~100 chars before any array item is
+// hidden (the shape of a list is worth more than long text), then both shrink together.
+const STEPS: Array<[number, number]> = [
+  [2000, Infinity], [1000, Infinity], [500, Infinity], [300, Infinity], [200, Infinity], [150, Infinity], [100, Infinity],
+  [100, 100], [80, 50], [64, 30], [48, 20], [32, 12], [32, 8], [32, 5], [32, 3], [32, 2], [32, 1],
+];
 const KEY_STEPS = [20, 10, 5, 3, 2, 1];
 
 /** Shrink any JSON-serializable value to fit a token (or character) budget. */
@@ -159,14 +162,8 @@ function fitNormalized(root: Json, cfg: Config): FitResult {
 
 function ladder(cfg: Config, maxDepth: number): Limits[] {
   const levels: Limits[] = [];
-  const n = Math.max(STR_STEPS.length, ITEM_STEPS.length);
-  for (let i = 1; i < n; i++) {
-    levels.push({
-      str: Math.max(cfg.minString, STR_STEPS[Math.min(i, STR_STEPS.length - 1)]!),
-      items: Math.max(cfg.minItems, ITEM_STEPS[Math.min(i, ITEM_STEPS.length - 1)]!),
-      keys: Infinity,
-      depth: Infinity,
-    });
+  for (const [str, items] of STEPS) {
+    levels.push({ str: Math.max(cfg.minString, str), items: Math.max(cfg.minItems, items), keys: Infinity, depth: Infinity });
   }
   const min = levels[levels.length - 1]!;
   for (const keys of KEY_STEPS) levels.push({ ...min, keys });

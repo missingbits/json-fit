@@ -12,5 +12,5 @@
     "rewriteRelativeImportExtensions": true,
     "erasableSyntaxOnly": true
   },
-  "include": ["src", "test", "examples"]
+  "include": ["src", "test", "examples", "bench"]
 }
